@@ -44,10 +44,9 @@ interface DeckDefinition {
 
 const STORAGE_KEY = 'vocab-study-progress-v1';
 const IMPORT_KEY = 'vocab-study-import-v1';
-const SETTINGS_KEY = 'vocab-study-settings-v2';
 const DEFAULT_DAYS: Record<DeckId, number> = {
-  spoken3000: 100,
-  toeflBook: 100,
+  spoken3000: 30,
+  toeflBook: 21,
   toefl: 10,
 };
 const DECKS: DeckDefinition[] = [
@@ -97,6 +96,17 @@ function getVisibleDays(total: number, current: number): Array<number | null> {
     result.push(number);
   });
   return result;
+}
+
+function getDayWordRange(totalWords: number, dayCount: number, day: number) {
+  const baseSize = Math.floor(totalWords / dayCount);
+  const largerDayCount = totalWords % dayCount;
+  const zeroBasedDay = day - 1;
+  const count = baseSize + (zeroBasedDay < largerDayCount ? 1 : 0);
+  const start =
+    zeroBasedDay * baseSize + Math.min(zeroBasedDay, largerDayCount);
+
+  return { start, count };
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -190,9 +200,6 @@ export default function ToeflStudyApp() {
   const [importedDecks, setImportedDecks] = useState<ImportedDecks>(() =>
     readJson(IMPORT_KEY, {})
   );
-  const [daysByDeck, setDaysByDeck] = useState<Record<DeckId, number>>(() =>
-    readJson(SETTINGS_KEY, DEFAULT_DAYS)
-  );
   const [randomSize, setRandomSize] = useState(10);
   const [randomWords, setRandomWords] = useState<VocabWord[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,14 +210,14 @@ export default function ToeflStudyApp() {
     [deckId, importedDecks, selectedDeck.words]
   );
   const dayCount = Math.min(
-    Math.max(1, daysByDeck[deckId] ?? DEFAULT_DAYS[deckId]),
+    DEFAULT_DAYS[deckId],
     Math.max(words.length, 1)
   );
   const dailySize = Math.max(1, Math.ceil(words.length / dayCount));
   const dayWords = useMemo(() => {
-    const start = (day - 1) * dailySize;
-    return words.slice(start, Math.min(start + dailySize, words.length));
-  }, [dailySize, day, words]);
+    const { start, count } = getDayWordRange(words.length, dayCount, day);
+    return words.slice(start, start + count);
+  }, [day, dayCount, words]);
   const studyWords = useMemo(
     () =>
       shuffleMode
@@ -244,11 +251,6 @@ export default function ToeflStudyApp() {
     () => localStorage.setItem(IMPORT_KEY, JSON.stringify(importedDecks)),
     [importedDecks]
   );
-  useEffect(
-    () => localStorage.setItem(SETTINGS_KEY, JSON.stringify(daysByDeck)),
-    [daysByDeck]
-  );
-
   const changeDeck = (nextDeckId: DeckId) => {
     setDeckId(nextDeckId);
     setDay(1);
@@ -257,18 +259,6 @@ export default function ToeflStudyApp() {
     setRevealed(true);
     setRandomWords([]);
     setView('today');
-  };
-
-  const changeDayCount = (value: number) => {
-    const next = Math.min(
-      Math.max(1, Math.round(value) || 1),
-      Math.max(words.length, 1)
-    );
-    setDaysByDeck((previous) => ({ ...previous, [deckId]: next }));
-    setDay(1);
-    setIndex(0);
-    setShuffleCycle(0);
-    setRevealed(true);
   };
 
   const move = useCallback(
@@ -371,7 +361,6 @@ export default function ToeflStudyApp() {
           dailySize={dailySize}
           totalWords={words.length}
           onDeckChange={changeDeck}
-          onDayCountChange={changeDayCount}
         />
         <nav aria-label="主导航">
           {navItems.map((item) => {
@@ -418,7 +407,6 @@ export default function ToeflStudyApp() {
           dailySize={dailySize}
           totalWords={words.length}
           onDeckChange={changeDeck}
-          onDayCountChange={changeDayCount}
         />
         {view === 'today' ? (
           <>
@@ -639,7 +627,6 @@ export default function ToeflStudyApp() {
             words={words}
             day={day}
             dayCount={dayCount}
-            dailySize={dailySize}
             deckName={selectedDeck.name}
             onSelectDay={(selected) => {
               setDay(selected);
@@ -736,7 +723,6 @@ function DeckSettings({
   dailySize,
   totalWords,
   onDeckChange,
-  onDayCountChange,
 }: {
   className: string;
   deckId: DeckId;
@@ -744,7 +730,6 @@ function DeckSettings({
   dailySize: number;
   totalWords: number;
   onDeckChange: (deckId: DeckId) => void;
-  onDayCountChange: (days: number) => void;
 }) {
   return (
     <section className={`deck-settings ${className}`} aria-label="词库设置">
@@ -761,16 +746,10 @@ function DeckSettings({
           ))}
         </select>
       </label>
-      <label>
-        <span>计划天数</span>
-        <input
-          type="number"
-          min="1"
-          max={Math.max(totalWords, 1)}
-          value={dayCount}
-          onChange={(event) => onDayCountChange(Number(event.target.value))}
-        />
-      </label>
+      <div className="fixed-plan">
+        <span>固定计划</span>
+        <strong>{dayCount} 天</strong>
+      </div>
       <p>
         共 {totalWords} 词 · 每天约 {dailySize} 词
       </p>
@@ -782,14 +761,12 @@ function PlanView({
   words,
   day,
   dayCount,
-  dailySize,
   deckName,
   onSelectDay,
 }: {
   words: VocabWord[];
   day: number;
   dayCount: number;
-  dailySize: number;
   deckName: string;
   onSelectDay: (day: number) => void;
 }) {
@@ -799,19 +776,19 @@ function PlanView({
         <div>
           <h1>{deckName} · 学习计划</h1>
           <p>
-            共 {words.length} 个词，分成 {dayCount}{' '}
-            天；修改计划天数后会自动重新分组。
+            共 {words.length} 个词，固定分成 {dayCount}{' '}
+            天；每天的词量已自动均匀分配。
           </p>
         </div>
         <CalendarDays />
       </div>
       <div className="plan-grid">
         {Array.from({ length: dayCount }, (_, i) => i + 1).map((number) => {
-          const start = (number - 1) * dailySize;
-          const count = words.slice(
-            start,
-            Math.min(start + dailySize, words.length)
-          ).length;
+          const { count } = getDayWordRange(
+            words.length,
+            dayCount,
+            number
+          );
           return (
             <button
               key={number}
