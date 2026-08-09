@@ -209,10 +209,7 @@ export default function ToeflStudyApp() {
     () => [...selectedDeck.words, ...(importedDecks[deckId] ?? [])],
     [deckId, importedDecks, selectedDeck.words]
   );
-  const dayCount = Math.min(
-    DEFAULT_DAYS[deckId],
-    Math.max(words.length, 1)
-  );
+  const dayCount = Math.min(DEFAULT_DAYS[deckId], Math.max(words.length, 1));
   const dailySize = Math.max(1, Math.ceil(words.length / dayCount));
   const dayWords = useMemo(() => {
     const { start, count } = getDayWordRange(words.length, dayCount, day);
@@ -784,11 +781,7 @@ function PlanView({
       </div>
       <div className="plan-grid">
         {Array.from({ length: dayCount }, (_, i) => i + 1).map((number) => {
-          const { count } = getDayWordRange(
-            words.length,
-            dayCount,
-            number
-          );
+          const { count } = getDayWordRange(words.length, dayCount, number);
           return (
             <button
               key={number}
@@ -874,6 +867,122 @@ function MistakesView({
   ratings: RatingMap;
   onClear: (id: string) => void;
 }) {
+  const [checkQueue, setCheckQueue] = useState<VocabWord[]>([]);
+  const [checkTotal, setCheckTotal] = useState(0);
+  const [checkedCount, setCheckedCount] = useState(0);
+  const [checkRevealed, setCheckRevealed] = useState(false);
+  const [checkStarted, setCheckStarted] = useState(false);
+  const currentCheckWord = checkQueue[0];
+
+  const startCheck = () => {
+    const queue = shuffleVocabulary(words, 'mistake-check', Date.now());
+    setCheckQueue(queue);
+    setCheckTotal(queue.length);
+    setCheckedCount(0);
+    setCheckRevealed(false);
+    setCheckStarted(true);
+  };
+
+  const finishCurrentCheck = (learned: boolean) => {
+    if (!currentCheckWord) return;
+    if (learned) onClear(currentCheckWord.id);
+    setCheckQueue((current) => current.slice(1));
+    setCheckedCount((current) => current + 1);
+    setCheckRevealed(false);
+  };
+
+  if (checkStarted) {
+    return (
+      <section className="secondary-view">
+        <div className="view-heading mistake-check-heading">
+          <div>
+            <h1>错词随机检查</h1>
+            <p>本轮随机且不重复，先回想答案，再判断自己是否掌握。</p>
+          </div>
+          <button
+            className="text-action-button"
+            onClick={() => setCheckStarted(false)}
+          >
+            返回错词本
+          </button>
+        </div>
+        {currentCheckWord ? (
+          <div className="mistake-check-stage">
+            <div className="mistake-check-progress">
+              <span>本轮进度</span>
+              <strong>
+                {checkedCount + 1} / {checkTotal}
+              </strong>
+            </div>
+            <article
+              className={
+                checkRevealed
+                  ? 'mistake-check-card revealed'
+                  : 'mistake-check-card'
+              }
+            >
+              <span className={ratings[currentCheckWord.id]}>
+                {ratings[currentCheckWord.id] === 'fuzzy' ? '模糊' : '生词'}
+              </span>
+              <h2>{currentCheckWord.word}</h2>
+              {currentCheckWord.phonetic ? (
+                <small>{currentCheckWord.phonetic}</small>
+              ) : null}
+              {checkRevealed ? (
+                <div className="mistake-check-answer">
+                  <p>{currentCheckWord.meaning}</p>
+                  {currentCheckWord.example ? (
+                    <blockquote>{currentCheckWord.example}</blockquote>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  className="reveal-check-button"
+                  onClick={() => setCheckRevealed(true)}
+                >
+                  <BookOpen size={18} />
+                  显示答案
+                </button>
+              )}
+            </article>
+            {checkRevealed ? (
+              <div className="mistake-check-actions">
+                <button
+                  className="keep-learning"
+                  onClick={() => finishCurrentCheck(false)}
+                >
+                  <RotateCcw size={19} />
+                  还不会，继续保留
+                </button>
+                <button
+                  className="learned"
+                  onClick={() => finishCurrentCheck(true)}
+                >
+                  <Check size={19} />
+                  已经会了
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="large-empty mistake-check-complete">
+            <Check />
+            <h2>本轮检查完成</h2>
+            <p>标记“已经会了”的单词已从错词本移除。</p>
+            {words.length ? (
+              <div>
+                <button onClick={startCheck}>
+                  <Shuffle size={18} />
+                  再随机检查一轮
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="secondary-view">
       <div className="view-heading">
@@ -881,7 +990,14 @@ function MistakesView({
           <h1>错词本</h1>
           <p>“模糊”和“不认识”的词会自动汇集到这里。</p>
         </div>
-        <ListRestart />
+        {words.length ? (
+          <button className="primary-heading-button" onClick={startCheck}>
+            <Shuffle size={18} />
+            随机检查
+          </button>
+        ) : (
+          <ListRestart />
+        )}
       </div>
       {words.length ? (
         <div className="word-list">
