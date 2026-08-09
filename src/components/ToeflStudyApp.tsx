@@ -132,6 +132,50 @@ function normaliseImported(rows: unknown[], deckId: DeckId): VocabWord[] {
   });
 }
 
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function shuffleVocabulary(
+  words: VocabWord[],
+  context: string,
+  cycle: number
+): VocabWord[] {
+  const createOrder = (cycleNumber: number) => {
+    const result = [...words];
+    let state = hashString(`${context}:${cycleNumber}`) || 1;
+    const random = () => {
+      state += 0x6d2b79f5;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const next = Math.floor(random() * (index + 1));
+      [result[index], result[next]] = [result[next], result[index]];
+    }
+    return result;
+  };
+
+  const shuffled = createOrder(cycle);
+
+  if (cycle > 0 && shuffled.length > 1) {
+    const previous = createOrder(cycle - 1);
+    if (shuffled[0]?.id === previous[previous.length - 1]?.id) {
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    }
+  }
+
+  return shuffled;
+}
+
 export default function ToeflStudyApp() {
   const [view, setView] = useState<View>('today');
   const [deckId, setDeckId] = useState<DeckId>('spoken3000');
@@ -139,6 +183,7 @@ export default function ToeflStudyApp() {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(true);
   const [shuffleMode, setShuffleMode] = useState(false);
+  const [shuffleCycle, setShuffleCycle] = useState(0);
   const [ratings, setRatings] = useState<RatingMap>(() =>
     readJson(STORAGE_KEY, {})
   );
@@ -166,7 +211,18 @@ export default function ToeflStudyApp() {
     const start = (day - 1) * dailySize;
     return words.slice(start, Math.min(start + dailySize, words.length));
   }, [dailySize, day, words]);
-  const currentWord = dayWords[index % Math.max(dayWords.length, 1)];
+  const studyWords = useMemo(
+    () =>
+      shuffleMode
+        ? shuffleVocabulary(
+            dayWords,
+            `${deckId}:${day}:${dayCount}`,
+            shuffleCycle
+          )
+        : dayWords,
+    [day, dayCount, dayWords, deckId, shuffleCycle, shuffleMode]
+  );
+  const currentWord = studyWords[index % Math.max(studyWords.length, 1)];
   const mistakes = useMemo(
     () =>
       words.filter(
@@ -197,6 +253,7 @@ export default function ToeflStudyApp() {
     setDeckId(nextDeckId);
     setDay(1);
     setIndex(0);
+    setShuffleCycle(0);
     setRevealed(true);
     setRandomWords([]);
     setView('today');
@@ -210,28 +267,32 @@ export default function ToeflStudyApp() {
     setDaysByDeck((previous) => ({ ...previous, [deckId]: next }));
     setDay(1);
     setIndex(0);
+    setShuffleCycle(0);
     setRevealed(true);
   };
 
-  const goTo = useCallback(
-    (next: number) => {
-      if (!dayWords.length) return;
-      setIndex((next + dayWords.length) % dayWords.length);
+  const move = useCallback(
+    (direction: number) => {
+      if (!studyWords.length) return;
+      const next = index + direction;
+      if (shuffleMode && direction > 0 && next >= studyWords.length) {
+        setShuffleCycle((previous) => previous + 1);
+        setIndex(0);
+      } else {
+        setIndex((next + studyWords.length) % studyWords.length);
+      }
       setRevealed(false);
     },
-    [dayWords.length]
+    [index, shuffleMode, studyWords.length]
   );
 
   const rate = useCallback(
     (rating: Rating) => {
       if (!currentWord) return;
       setRatings((previous) => ({ ...previous, [currentWord.id]: rating }));
-      const next = shuffleMode
-        ? Math.floor(Math.random() * dayWords.length)
-        : (index + 1) % dayWords.length;
-      goTo(next);
+      move(1);
     },
-    [currentWord, dayWords.length, goTo, index, shuffleMode]
+    [currentWord, move]
   );
 
   useEffect(() => {
@@ -248,12 +309,12 @@ export default function ToeflStudyApp() {
       if (event.key === '1') rate('known');
       if (event.key === '2') rate('fuzzy');
       if (event.key === '3') rate('unknown');
-      if (event.key === 'ArrowLeft') goTo(index - 1);
-      if (event.key === 'ArrowRight') goTo(index + 1);
+      if (event.key === 'ArrowLeft') move(-1);
+      if (event.key === 'ArrowRight') move(1);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [goTo, index, rate]);
+  }, [move, rate]);
 
   const speak = () => {
     if (!currentWord || !('speechSynthesis' in window)) return;
@@ -396,14 +457,14 @@ export default function ToeflStudyApp() {
               <div className="headline-progress">
                 <span>
                   <strong>
-                    {dayWords.length ? (index % dayWords.length) + 1 : 0}
+                    {studyWords.length ? (index % studyWords.length) + 1 : 0}
                   </strong>{' '}
-                  / {dayWords.length}
+                  / {studyWords.length}
                 </span>
                 <div>
                   <i
                     style={{
-                      width: `${dayWords.length ? (((index % dayWords.length) + 1) / dayWords.length) * 100 : 0}%`,
+                      width: `${studyWords.length ? (((index % studyWords.length) + 1) / studyWords.length) * 100 : 0}%`,
                     }}
                   />
                 </div>
@@ -415,19 +476,36 @@ export default function ToeflStudyApp() {
                 <div className="mode-switch" aria-label="学习模式">
                   <button
                     className={!shuffleMode ? 'active' : ''}
-                    onClick={() => setShuffleMode(false)}
+                    onClick={() => {
+                      setShuffleMode(false);
+                      setIndex(0);
+                      setRevealed(false);
+                    }}
                   >
                     <ListRestart size={19} />
                     顺序学习
                   </button>
                   <button
                     className={shuffleMode ? 'active' : ''}
-                    onClick={() => setShuffleMode(true)}
+                    aria-label="随机学习，本轮不重复"
+                    onClick={() => {
+                      if (!shuffleMode) {
+                        setShuffleCycle((previous) => previous + 1);
+                        setIndex(0);
+                        setRevealed(false);
+                      }
+                      setShuffleMode(true);
+                    }}
                   >
                     <Shuffle size={19} />
                     随机学习
                   </button>
                 </div>
+                {shuffleMode ? (
+                  <p className="shuffle-note">
+                    本轮不重复 · 学完后自动重新打乱
+                  </p>
+                ) : null}
                 {currentWord ? (
                   <article
                     className={revealed ? 'flashcard revealed' : 'flashcard'}
@@ -504,17 +582,11 @@ export default function ToeflStudyApp() {
                   </button>
                 </div>
                 <div className="card-navigation">
-                  <button
-                    onClick={() => goTo(index - 1)}
-                    aria-label="上一个单词"
-                  >
+                  <button onClick={() => move(-1)} aria-label="上一个单词">
                     <ChevronLeft />
                   </button>
                   <span>空格翻面 · 1/2/3 选择</span>
-                  <button
-                    onClick={() => goTo(index + 1)}
-                    aria-label="下一个单词"
-                  >
+                  <button onClick={() => move(1)} aria-label="下一个单词">
                     <ChevronRight />
                   </button>
                 </div>
