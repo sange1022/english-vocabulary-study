@@ -1,11 +1,7 @@
-import FlashcardApp from './components/FlashcardApp';
+import ToeflStudyApp from './components/ToeflStudyApp';
 
 function App() {
-  return (
-    <div className="App">
-      <FlashcardApp />
-    </div>
-  );
+  return <ToeflStudyApp />;
 }
 
 export default App;

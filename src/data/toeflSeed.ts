@@ -1,0 +1,343 @@
+export interface VocabWord {
+  id: string;
+  word: string;
+  phonetic: string;
+  meaning: string;
+  example: string;
+  translation: string;
+  day: number;
+  definition?: string;
+  sourceRank?: number;
+  derivatives?: string;
+  synonyms?: string;
+  sourcePage?: number | null;
+  sourceUnit?: number;
+  sourceDetailStatus?: 'complete' | 'partial-source' | 'source-page-missing';
+}
+
+const DAY_ONE = [
+  [
+    'abate',
+    '/əˈbeɪt/',
+    'v. 减轻；减弱',
+    'The storm began to abate before dawn.',
+    '黎明前，暴风雨开始减弱。',
+  ],
+  [
+    'abbreviate',
+    '/əˈbriːvieɪt/',
+    'v. 缩写；缩短',
+    'The term is often abbreviated in academic writing.',
+    '该术语在学术写作中经常被缩写。',
+  ],
+  [
+    'abide',
+    '/əˈbaɪd/',
+    'v. 遵守；忍受',
+    'All participants must abide by the rules.',
+    '所有参与者都必须遵守规则。',
+  ],
+  [
+    'abolish',
+    '/əˈbɒlɪʃ/',
+    'v. 废除；取消',
+    'The reform aimed to abolish the old restriction.',
+    '这项改革旨在废除旧限制。',
+  ],
+  [
+    'abrupt',
+    '/əˈbrʌpt/',
+    'adj. 突然的；唐突的',
+    'The climate underwent an abrupt change.',
+    '气候经历了突然的变化。',
+  ],
+  [
+    'absorb',
+    '/əbˈzɔːrb/',
+    'v. 吸收；理解',
+    'Plants absorb carbon dioxide from the air.',
+    '植物从空气中吸收二氧化碳。',
+  ],
+  [
+    'abstract',
+    '/ˈæbstrækt/',
+    'adj. 抽象的；n. 摘要',
+    'The theory may seem abstract at first.',
+    '这个理论起初可能显得抽象。',
+  ],
+  [
+    'abundant',
+    '/əˈbʌndənt/',
+    'adj. 丰富的；充足的',
+    'Fresh water was abundant in the region.',
+    '该地区淡水资源丰富。',
+  ],
+  [
+    'accelerate',
+    '/əkˈseləreɪt/',
+    'v. 加速；促进',
+    'New technology accelerated the research process.',
+    '新技术加快了研究进程。',
+  ],
+  [
+    'accessible',
+    '/əkˈsesəbəl/',
+    'adj. 可获得的；易懂的',
+    'The archive is accessible to the public.',
+    '该档案向公众开放。',
+  ],
+  [
+    'accommodate',
+    '/əˈkɒmədeɪt/',
+    'v. 容纳；适应',
+    'The building can accommodate 500 visitors.',
+    '这座建筑可容纳五百名参观者。',
+  ],
+  [
+    'abandon',
+    '/əˈbændən/',
+    'v. 放弃；遗弃',
+    'He abandoned the plan when the cost became too high.',
+    '成本变得过高时，他放弃了这个计划。',
+  ],
+  [
+    'accumulate',
+    '/əˈkjuːmjəleɪt/',
+    'v. 积累；堆积',
+    'Sediment accumulated at the bottom of the lake.',
+    '沉积物堆积在湖底。',
+  ],
+  [
+    'accurate',
+    '/ˈækjərət/',
+    'adj. 准确的；精确的',
+    'Accurate measurements are essential to the experiment.',
+    '精确测量对实验至关重要。',
+  ],
+  [
+    'adapt',
+    '/əˈdæpt/',
+    'v. 适应；改编',
+    'Species must adapt to environmental change.',
+    '物种必须适应环境变化。',
+  ],
+  [
+    'adjacent',
+    '/əˈdʒeɪsənt/',
+    'adj. 相邻的；邻近的',
+    'The two habitats are adjacent to each other.',
+    '这两个栖息地彼此相邻。',
+  ],
+  [
+    'advocate',
+    '/ˈædvəkeɪt/',
+    'v. 提倡；主张',
+    'Many scientists advocate further investigation.',
+    '许多科学家主张进一步调查。',
+  ],
+  [
+    'allocate',
+    '/ˈæləkeɪt/',
+    'v. 分配；拨给',
+    'The agency allocated funds to the project.',
+    '该机构为项目拨付了资金。',
+  ],
+  [
+    'alter',
+    '/ˈɔːltər/',
+    'v. 改变；修改',
+    'Human activity can alter natural habitats.',
+    '人类活动可能改变自然栖息地。',
+  ],
+  [
+    'ambiguous',
+    '/æmˈbɪɡjuəs/',
+    'adj. 含糊的；有歧义的',
+    'The evidence remains ambiguous.',
+    '证据仍然模棱两可。',
+  ],
+  [
+    'amend',
+    '/əˈmend/',
+    'v. 修订；改正',
+    'The committee voted to amend the proposal.',
+    '委员会投票决定修订该提案。',
+  ],
+  [
+    'anticipate',
+    '/ænˈtɪsəpeɪt/',
+    'v. 预期；预见',
+    'Researchers anticipated a gradual decline.',
+    '研究人员预期会逐渐下降。',
+  ],
+  [
+    'apparent',
+    '/əˈpærənt/',
+    'adj. 显然的；表面上的',
+    'The cause was not immediately apparent.',
+    '原因并非立即显而易见。',
+  ],
+  [
+    'arbitrary',
+    '/ˈɑːrbətreri/',
+    'adj. 任意的；武断的',
+    'The boundary was chosen on an arbitrary basis.',
+    '这条边界是任意划定的。',
+  ],
+  [
+    'assess',
+    '/əˈses/',
+    'v. 评估；评价',
+    'The study assessed the impact of pollution.',
+    '该研究评估了污染的影响。',
+  ],
+  [
+    'attain',
+    '/əˈteɪn/',
+    'v. 达到；获得',
+    'The seedlings attained full height in two years.',
+    '幼苗在两年内长到了完整高度。',
+  ],
+  [
+    'attribute',
+    '/əˈtrɪbjuːt/',
+    'v. 归因于；n. 属性',
+    'The change was attributed to warmer oceans.',
+    '这一变化被归因于海洋变暖。',
+  ],
+  [
+    'authentic',
+    '/ɔːˈθentɪk/',
+    'adj. 真实的；可信的',
+    'Experts confirmed that the document was authentic.',
+    '专家确认该文件是真实的。',
+  ],
+  [
+    'beneficial',
+    '/ˌbenɪˈfɪʃəl/',
+    'adj. 有益的',
+    'Moderate rainfall is beneficial to the crops.',
+    '适量降雨对作物有益。',
+  ],
+  [
+    'bias',
+    '/ˈbaɪəs/',
+    'n. 偏见；偏差',
+    'The method reduces bias in the sample.',
+    '这种方法减少了样本偏差。',
+  ],
+  [
+    'cease',
+    '/siːs/',
+    'v. 停止；终止',
+    'The factory ceased production in May.',
+    '工厂于五月停止生产。',
+  ],
+  [
+    'coherent',
+    '/koʊˈhɪrənt/',
+    'adj. 连贯的；一致的',
+    'The evidence supports a coherent explanation.',
+    '这些证据支持一个连贯的解释。',
+  ],
+  [
+    'compelling',
+    '/kəmˈpelɪŋ/',
+    'adj. 令人信服的；引人注目的',
+    'The fossils provide compelling evidence.',
+    '这些化石提供了令人信服的证据。',
+  ],
+  [
+    'comprise',
+    '/kəmˈpraɪz/',
+    'v. 包含；构成',
+    'Women comprise half of the research team.',
+    '女性占研究团队的一半。',
+  ],
+  [
+    'consecutive',
+    '/kənˈsekjətɪv/',
+    'adj. 连续的',
+    'Temperatures rose for three consecutive years.',
+    '气温连续三年上升。',
+  ],
+  [
+    'constrain',
+    '/kənˈstreɪn/',
+    'v. 限制；约束',
+    'Limited resources constrained the investigation.',
+    '有限资源限制了调查。',
+  ],
+  [
+    'controversial',
+    '/ˌkɒntrəˈvɜːrʃəl/',
+    'adj. 有争议的',
+    'The new interpretation remains controversial.',
+    '这种新解释仍有争议。',
+  ],
+  [
+    'conventional',
+    '/kənˈvenʃənəl/',
+    'adj. 传统的；常规的',
+    'The device uses less energy than conventional models.',
+    '该设备比传统型号耗能更少。',
+  ],
+  [
+    'decline',
+    '/dɪˈklaɪn/',
+    'v. 下降；拒绝',
+    'The population began to decline rapidly.',
+    '种群数量开始迅速下降。',
+  ],
+  [
+    'derive',
+    '/dɪˈraɪv/',
+    'v. 获得；源自',
+    'The word derives from an ancient language.',
+    '这个词源自一种古老语言。',
+  ],
+] as const;
+
+const FOLLOW_UP = [
+  ['diminish', 'v. 减少；削弱'],
+  ['discrete', 'adj. 分离的；不同的'],
+  ['diverse', 'adj. 多样的'],
+  ['elaborate', 'adj. 复杂精细的；v. 详述'],
+  ['emerge', 'v. 出现；显现'],
+  ['empirical', 'adj. 以观察或实验为依据的'],
+  ['enhance', 'v. 提高；增强'],
+  ['equivalent', 'adj. 等同的；等值的'],
+  ['exceed', 'v. 超过；超越'],
+  ['explicit', 'adj. 明确的；清楚的'],
+  ['fluctuate', 'v. 波动；起伏'],
+  ['fundamental', 'adj. 基本的；根本的'],
+  ['generate', 'v. 产生；生成'],
+  ['inhibit', 'v. 抑制；阻止'],
+  ['integrate', 'v. 整合；融入'],
+  ['intermediate', 'adj. 中间的；中级的'],
+  ['negligible', 'adj. 微不足道的'],
+  ['persistent', 'adj. 持续的；执着的'],
+  ['preliminary', 'adj. 初步的；预备的'],
+  ['subsequent', 'adj. 随后的；后来的'],
+] as const;
+
+export const seedVocabulary: VocabWord[] = [
+  ...DAY_ONE.map(([word, phonetic, meaning, example, translation], index) => ({
+    id: `seed-1-${index + 1}`,
+    word,
+    phonetic,
+    meaning,
+    example,
+    translation,
+    day: 1,
+  })),
+  ...FOLLOW_UP.map(([word, meaning], index) => ({
+    id: `seed-${index + 2}-1`,
+    word,
+    phonetic: '',
+    meaning,
+    example: `${word[0].toUpperCase()}${word.slice(1)} is an important word in academic English.`,
+    translation: `${word} 是学术英语中的重要词汇。`,
+    day: index + 2,
+  })),
+];

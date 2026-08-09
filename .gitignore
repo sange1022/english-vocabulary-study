@@ -43,6 +43,7 @@ yarn-error.log*
 .cache
 .eslintcache
 .stylelintcache
+tmp/
 
 # Local files
 *.local

@@ -1,99 +1,48 @@
-# HSK Cards
+# 词刻 · 英语词汇学习
 
-A minimalist, responsive web application with modern features for studying HSK (Chinese Proficiency Test) vocabulary using flashcards.
+一个面向中文英语学习者的可选词库学习网页。每个词库都可以自行设置学习天数，系统根据总词数自动计算每天词量并重新分组。
 
-## Features
+在线使用：[https://sange1022.github.io/english-vocabulary-study/](https://sange1022.github.io/english-vocabulary-study/)
 
-- 📚 All HSK levels (1-6) vocabulary included
-- 🎯 Focus mode for distraction-free study
-- ✓ Track learned/unlearned cards
-- ⌨️ Fast keyboard navigation
-- 📱 Responsive design with touch support
-- 🌗 Dark mode support
-- 🔄 Shuffle mode for randomized practice
+内置词库：
 
-![Desktop screenshot](https://github.com/user-attachments/assets/bab554d1-354b-487b-93c1-b089f08c55fe)
+- 日常口语进阶 3000：按 SUBTLEX-US 电影和电视字幕口语频率排序，过滤过于基础的功能词，并用 ECDICT 补充中文释义、音标和英文释义。
+- 李笑来 TOEFL 核心词汇 2115：从用户提供的扫描版原书中识别，保留可确认的释义、例句、派生词和近义词；原文件缺失的详情页会在词卡中明确标注。
+- TOEFL 核心示例：用于演示学术词汇学习和导入完整词表。
 
-## Usage
+支持顺序/随机学习、键盘操作、浏览器发音、错词本、随机分组、词表导入和本地进度保存。
 
-### Website
-
-Live at [https://hskcards.app](https://hskcards.app)
-
-### Desktop Controls
-
-- <kbd>Space</kbd>: Flip card
-- <kbd>←</kbd> <kbd>→</kbd> or <kbd>j</kbd> <kbd>k</kbd>: Navigate cards
-- <kbd>1</kbd>-<kbd>6</kbd>: Switch HSK level
-- <kbd>f</kbd>: Toggle learned/unlearned state
-- <kbd>u</kbd>: Show unlearned only
-- <kbd>z</kbd>: Toggle focus mode
-- <kbd>esc</kbd>: Exit focus mode
-
-### Mobile Controls
-
-- Tap to flip card
-- Swipe left/right to navigate
-- Tap buttons to mark learned/unlearned
-
-### Modes
-
-- Focus mode: Hide most buttons and settings for distraction-free study
-- Shuffle mode: Randomize the order of cards
-- Dark mode: Toggle with the button in the top right. Preference is saved.
-- Learning progress: Track which cards you've learned across sessions
-
-![mobile](https://github.com/user-attachments/assets/de762f28-6e97-43c6-afcd-1109aff31d2d)
-
-Mix and match to find the best way to study for you.
-
-## Development
-
-This project uses:
-
-- Vite for fast development and optimized builds
-- React
-- Tailwind CSS for styling
-- Local storage for persisting preferences
-
-### Building for Production
+## 本地运行
 
 ```bash
+npm install
+npm run start
+```
+
+生产构建：
+
+```bash
+npm run typecheck
 npm run build
 ```
 
-This will create a `dist` directory with optimized production files.
+## 导入词表
 
-### Preview Production Build
+导入的词会追加到当前选中的词库，并参与自动按天分组。支持 UTF-8 CSV 或 JSON；CSV 首行字段为：
 
-```bash
-npm run preview
+```csv
+word,phonetic,meaning,example,translation
+photosynthesis,/ˌfoʊtoʊˈsɪnθəsɪs/,n. 光合作用,Photosynthesis converts light into chemical energy.,光合作用将光能转化为化学能。
 ```
 
-## Ideas
+- `word` 和 `meaning` 必填。
+- 学习天数不写入词表，由界面中的“计划天数”统一控制。
+- 进度、计划设置和导入内容保存在浏览器 `localStorage`，无需后端。
 
-- Add traditional characters
-- Allow users to mark cards as known/unknown for personalized practice
-- Add colors to represent each tone in Pinyin for better visual distinction
-- Implement a progress tracker to show study stats
+## 数据与开源来源
 
-## Note on CSV format
+- 日常口语排序参考 [SUBTLEX-US word frequencies](https://github.com/words/subtlex-word-frequencies)，该数据包采用 ISC 许可，并注明来源为 SUBTLEX-US 美国电影和电视字幕语料。
+- 中文释义和音标来自 MIT 许可的 [ECDICT](https://github.com/skywind3000/ECDICT)。
+- 项目基于 MIT 许可的 [tnm/hsk](https://github.com/tnm/hsk) 改造，保留其 React + Vite 技术基础与 MIT 许可证。
 
-The vocabulary data is stored in header-less CSV files with
-character, pinyin, and English:
-
-```
-跳舞,tiào wǔ,to dance
-外,wài,outside
-```
-
-You could fork and adapt for other languages.
-Please do!
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is open source and available under the [MIT License](LICENSE).
+《TOEFL 核心词汇 21 天突破》词库由用户提供的扫描版文件在本地识别生成，没有从第三方词表仓库复制。

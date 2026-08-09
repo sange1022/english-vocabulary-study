@@ -1,0 +1,404 @@
+{
+  "total": 2115,
+  "completeDetails": 1803,
+  "partialDetails": 11,
+  "sourcePageMissing": 301,
+  "byUnit": {
+    "1": 101,
+    "2": 102,
+    "3": 102,
+    "4": 102,
+    "5": 102,
+    "6": 102,
+    "7": 101,
+    "8": 101,
+    "9": 102,
+    "10": 102,
+    "11": 102,
+    "12": 102,
+    "13": 102,
+    "14": 84,
+    "15": 102,
+    "16": 102,
+    "17": 102,
+    "18": 101,
+    "19": 100,
+    "20": 101,
+    "21": 100
+  },
+  "repairs": [
+    {
+      "from": "magnity",
+      "to": "magnify",
+      "page": 27
+    },
+    {
+      "from": "thesis",
+      "to": "photosynthesis",
+      "page": 30
+    },
+    {
+      "from": "ation",
+      "to": "recommendation",
+      "page": 52
+    },
+    {
+      "from": "ate",
+      "to": "undergraduate",
+      "page": 58
+    },
+    {
+      "from": "namics",
+      "to": "thermodynamics",
+      "page": 111
+    },
+    {
+      "from": "standing",
+      "to": "notwithstanding",
+      "page": 124
+    },
+    {
+      "from": "sense",
+      "to": "commonsense",
+      "page": 135
+    },
+    {
+      "from": "tive",
+      "to": "hypersensitive",
+      "page": 177
+    },
+    {
+      "from": "ance",
+      "to": "preponderance",
+      "page": 179
+    },
+    {
+      "from": "mercilese",
+      "to": "merciless",
+      "page": 335
+    }
+  ],
+  "duplicates": [],
+  "missingDetailSample": [
+    {
+      "word": "curtain",
+      "unit": 2
+    },
+    {
+      "word": "converge",
+      "unit": 2
+    },
+    {
+      "word": "consequence",
+      "unit": 2
+    },
+    {
+      "word": "craft",
+      "unit": 2
+    },
+    {
+      "word": "harbor",
+      "unit": 2
+    },
+    {
+      "word": "vital",
+      "unit": 2
+    },
+    {
+      "word": "wear",
+      "unit": 2
+    },
+    {
+      "word": "withstand",
+      "unit": 2
+    },
+    {
+      "word": "earnest",
+      "unit": 3
+    },
+    {
+      "word": "aesthetic",
+      "unit": 3
+    },
+    {
+      "word": "dismay",
+      "unit": 3
+    },
+    {
+      "word": "dogged",
+      "unit": 3
+    },
+    {
+      "word": "grand",
+      "unit": 3
+    },
+    {
+      "word": "heritage",
+      "unit": 3
+    },
+    {
+      "word": "genuine",
+      "unit": 3
+    },
+    {
+      "word": "harden",
+      "unit": 3
+    },
+    {
+      "word": "humanity",
+      "unit": 3
+    },
+    {
+      "word": "immediate",
+      "unit": 3
+    },
+    {
+      "word": "embody",
+      "unit": 3
+    },
+    {
+      "word": "evaporate",
+      "unit": 3
+    },
+    {
+      "word": "enthusiasm",
+      "unit": 3
+    },
+    {
+      "word": "secure",
+      "unit": 3
+    },
+    {
+      "word": "rush",
+      "unit": 3
+    },
+    {
+      "word": "scent",
+      "unit": 3
+    },
+    {
+      "word": "shade",
+      "unit": 3
+    },
+    {
+      "word": "shut",
+      "unit": 3
+    },
+    {
+      "word": "slip",
+      "unit": 3
+    },
+    {
+      "word": "sort",
+      "unit": 3
+    },
+    {
+      "word": "till",
+      "unit": 3
+    },
+    {
+      "word": "acoustic",
+      "unit": 4
+    },
+    {
+      "word": "formation",
+      "unit": 4
+    },
+    {
+      "word": "fatal",
+      "unit": 4
+    },
+    {
+      "word": "fungus",
+      "unit": 4
+    },
+    {
+      "word": "expressive",
+      "unit": 4
+    },
+    {
+      "word": "flattering",
+      "unit": 4
+    },
+    {
+      "word": "physicist",
+      "unit": 4
+    },
+    {
+      "word": "percussion",
+      "unit": 4
+    },
+    {
+      "word": "organic",
+      "unit": 4
+    },
+    {
+      "word": "predator",
+      "unit": 4
+    },
+    {
+      "word": "pronounced",
+      "unit": 4
+    },
+    {
+      "word": "odor",
+      "unit": 4
+    },
+    {
+      "word": "oyster",
+      "unit": 4
+    },
+    {
+      "word": "patch",
+      "unit": 4
+    },
+    {
+      "word": "plot",
+      "unit": 4
+    },
+    {
+      "word": "portray",
+      "unit": 4
+    },
+    {
+      "word": "principal",
+      "unit": 4
+    },
+    {
+      "word": "treasure",
+      "unit": 4
+    },
+    {
+      "word": "version",
+      "unit": 4
+    },
+    {
+      "word": "undermine",
+      "unit": 4
+    },
+    {
+      "word": "talent",
+      "unit": 4
+    },
+    {
+      "word": "temple",
+      "unit": 4
+    },
+    {
+      "word": "thereby",
+      "unit": 4
+    },
+    {
+      "word": "towel",
+      "unit": 4
+    },
+    {
+      "word": "trumpet",
+      "unit": 4
+    },
+    {
+      "word": "vacant",
+      "unit": 4
+    },
+    {
+      "word": "vocal",
+      "unit": 4
+    },
+    {
+      "word": "weather",
+      "unit": 4
+    },
+    {
+      "word": "wonder",
+      "unit": 4
+    },
+    {
+      "word": "superficial",
+      "unit": 4
+    },
+    {
+      "word": "swamp",
+      "unit": 4
+    },
+    {
+      "word": "timber",
+      "unit": 4
+    },
+    {
+      "word": "boycott",
+      "unit": 5
+    },
+    {
+      "word": "burden",
+      "unit": 5
+    },
+    {
+      "word": "eccentric",
+      "unit": 5
+    },
+    {
+      "word": "domestic",
+      "unit": 5
+    },
+    {
+      "word": "axis",
+      "unit": 5
+    },
+    {
+      "word": "battery",
+      "unit": 5
+    },
+    {
+      "word": "bite",
+      "unit": 5
+    },
+    {
+      "word": "canopy",
+      "unit": 5
+    },
+    {
+      "word": "extend",
+      "unit": 5
+    },
+    {
+      "word": "embryo",
+      "unit": 5
+    },
+    {
+      "word": "entrance",
+      "unit": 5
+    },
+    {
+      "word": "evoke",
+      "unit": 5
+    },
+    {
+      "word": "publicize",
+      "unit": 5
+    },
+    {
+      "word": "recreation",
+      "unit": 5
+    },
+    {
+      "word": "prior",
+      "unit": 5
+    },
+    {
+      "word": "propel",
+      "unit": 5
+    },
+    {
+      "word": "radar",
+      "unit": 5
+    },
+    {
+      "word": "raw",
+      "unit": 5
+    },
+    {
+      "word": "burgeon",
+      "unit": 6
+    }
+  ]
+}
