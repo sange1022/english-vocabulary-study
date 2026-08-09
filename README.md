@@ -4,6 +4,8 @@
 
 在线使用：[https://sange1022.github.io/english-vocabulary-study/](https://sange1022.github.io/english-vocabulary-study/)
 
+作者：戌無营造
+
 内置词库：
 
 - 日常口语进阶 3000：按 SUBTLEX-US 电影和电视字幕口语频率排序，过滤过于基础的功能词，并用 ECDICT 补充中文释义、音标和英文释义。

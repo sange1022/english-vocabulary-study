@@ -162,6 +162,22 @@ select:focus-visible {
   cursor: pointer;
   font-size: 16px;
 }
+.sidebar-author-credit {
+  margin: 14px 17px 0;
+  color: var(--muted);
+  font:
+    400 11px/1.5 'Noto Sans SC',
+    sans-serif;
+  letter-spacing: 0.08em;
+}
+.sidebar-author-credit strong,
+.mobile-author-credit strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.mobile-author-credit {
+  display: none;
+}
 .main-area {
   min-width: 0;
 }
@@ -924,6 +940,14 @@ select:focus-visible {
     border-top: 1px solid var(--line);
     background: rgba(250, 249, 245, 0.97);
     backdrop-filter: blur(16px);
+  }
+  .mobile-author-credit {
+    display: block;
+    padding: 20px 20px 28px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-align: center;
   }
   .mobile-nav button {
     display: grid;

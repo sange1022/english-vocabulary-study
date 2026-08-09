@@ -344,6 +344,9 @@ export default function ToeflStudyApp() {
           accept=".csv,.json"
           onChange={importFile}
         />
+        <p className="sidebar-author-credit">
+          作者 · <strong>戌無营造</strong>
+        </p>
       </aside>
 
       <main className="main-area">
@@ -587,6 +590,9 @@ export default function ToeflStudyApp() {
             }
           />
         ) : null}
+        <footer className="mobile-author-credit">
+          作者 · <strong>戌無营造</strong>
+        </footer>
       </main>
 
       <nav className="mobile-nav" aria-label="移动端导航">
