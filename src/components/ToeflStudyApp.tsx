@@ -56,7 +56,7 @@ const DECKS: DeckDefinition[] = [
     name: '日常口语进阶 3000',
     shortName: '口语进阶',
     subtitle: '从真实影视对话中积累高频表达',
-    source: 'SUBTLEX-US × ECDICT',
+    source: 'SUBTLEX-US × ECDICT × Tatoeba (CC BY 2.0 FR)',
     words: conversationVocabulary,
   },
   {
@@ -532,14 +532,17 @@ export default function ToeflStudyApp() {
                       {currentWord.sourceUnit ? (
                         <BookWordDetails word={currentWord} />
                       ) : null}
-                      {currentWord.definition ? (
+                      {deckId !== 'spoken3000' && currentWord.definition ? (
                         <p className="english-definition">
                           <span>EN</span>
                           {currentWord.definition}
                         </p>
                       ) : null}
                       {!currentWord.sourceUnit && currentWord.example ? (
-                        <p>{currentWord.example}</p>
+                        <p className="example-sentence">
+                          <span>例句</span>
+                          {currentWord.example}
+                        </p>
                       ) : null}
                       {!currentWord.sourceUnit && currentWord.translation ? (
                         <p className="translation">{currentWord.translation}</p>

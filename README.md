@@ -8,7 +8,7 @@
 
 内置词库：
 
-- 日常口语进阶 3000：按 SUBTLEX-US 电影和电视字幕口语频率排序，过滤过于基础的功能词，并用 ECDICT 补充中文释义、音标和英文释义。
+- 日常口语进阶 3000：按 SUBTLEX-US 电影和电视字幕口语频率排序，过滤过于基础的功能词，用 ECDICT 补充中文释义和音标，并优先匹配 Tatoeba 带真人录音的英文例句。
 - 李笑来 TOEFL 核心词汇 2115：从用户提供的扫描版原书中识别，保留可确认的释义、例句、派生词和近义词；原文件缺失的详情页会在词卡中明确标注。
 - TOEFL 核心示例：用于演示学术词汇学习和导入完整词表。
 
@@ -45,6 +45,7 @@ photosynthesis,/ˌfoʊtoʊˈsɪnθəsɪs/,n. 光合作用,Photosynthesis convert
 
 - 日常口语排序参考 [SUBTLEX-US word frequencies](https://github.com/words/subtlex-word-frequencies)，该数据包采用 ISC 许可，并注明来源为 SUBTLEX-US 美国电影和电视字幕语料。
 - 中文释义和音标来自 MIT 许可的 [ECDICT](https://github.com/skywind3000/ECDICT)。
+- 日常口语例句优先来自 [Tatoeba 英文句库](https://tatoeba.org/en/downloads)中带真人录音的句子，由 Tatoeba 贡献者提供并遵循 [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/)；少数未匹配词使用项目生成的中性示例句。
 - 项目基于 MIT 许可的 [tnm/hsk](https://github.com/tnm/hsk) 改造，保留其 React + Vite 技术基础与 MIT 许可证。
 
 《TOEFL 核心词汇 21 天突破》词库由用户提供的扫描版文件在本地识别生成，没有从第三方词表仓库复制。

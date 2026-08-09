@@ -1,10 +1,15 @@
 import { writeFile } from 'node:fs/promises';
 import Papa from 'papaparse';
+import seekBzip from 'seek-bzip';
 
 const SUBTLEX_URL =
   'https://raw.githubusercontent.com/words/subtlex-word-frequencies/master/index.json';
 const ECDICT_URL =
   'https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv';
+const TATOEBA_SENTENCES_URL =
+  'https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2';
+const TATOEBA_AUDIO_URL =
+  'https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences_with_audio.tsv.bz2';
 const OUTPUT_URL = new URL('../src/data/conversationSeed.ts', import.meta.url);
 const TARGET_SIZE = 3000;
 const MIN_SOURCE_RANK = 800;
@@ -46,6 +51,80 @@ cunt porn porno`
     .trim()
     .split(/\s+/)
 );
+const OFFENSIVE = new Set([
+  ...BLOCKED,
+  'cocksucker',
+  'hooker',
+  'jackass',
+  'motherfucking',
+  'moron',
+  'morons',
+  'prostitute',
+  'slutty',
+  'tits',
+]);
+const SENSITIVE = new Set([
+  ...OFFENSIVE,
+  'abortion',
+  'alcohol',
+  'cancer',
+  'cigarette',
+  'cocaine',
+  'drugs',
+  'fascist',
+  'heroin',
+  'kill',
+  'killed',
+  'miscarriage',
+  'murder',
+  'nazi',
+  'rape',
+  'sex',
+  'sexual',
+  'smoking',
+  'suicide',
+]);
+const FALLBACK_EXAMPLES = new Map([
+  ['abortion', 'The debate about abortion remains deeply personal.'],
+  ['alcohol', 'This drink contains no alcohol.'],
+  ['cancer', 'Regular checkups can help detect cancer early.'],
+  ['cocaine', 'Cocaine is a dangerous and highly addictive drug.'],
+  ['heck', 'What the heck are you talking about?'],
+  ['heroin', 'Heroin is a dangerous and highly addictive drug.'],
+  ['penis', 'The doctor explained the anatomy of the penis.'],
+  ['rape', 'The law treats rape as a serious crime.'],
+  ['sexual', 'They received clear information about sexual health.'],
+  ['tit', 'A blue tit landed on the garden fence.'],
+  ['kinda', "I'm kinda tired, so I'm going home early."],
+  ['fella', "He's a friendly fella once you get to know him."],
+  ['cos', "I stayed home 'cos it was raining."],
+  ['gosh', "Gosh, I didn't expect to see you here!"],
+  ['thee', 'I give thee my word that I will return.'],
+  ['thy', 'Keep thy promise, even when it is difficult.'],
+  ['hon', 'Would you like some coffee, hon?'],
+  ['mon', 'Take it easy, mon; everything will be fine.'],
+  ['dame', 'The actor was appointed a dame for her achievements.'],
+  ['blah', 'I felt blah after staying up all night.'],
+  ['sire', 'The king hoped to sire an heir.'],
+  ['mistress', 'She became the mistress of the old estate.'],
+  ['von', 'The name von Trapp is known around the world.'],
+  ['tellin', "I'm tellin' you, this is a bad idea."],
+  ['takin', "He's takin' the bus home tonight."],
+  ['goddess', 'The ancient temple was dedicated to a goddess.'],
+  ['til', "Wait here 'til I come back."],
+  ['kiddo', 'You did a great job, kiddo!'],
+  ['lan', 'Connect the printer to the office LAN.'],
+  ['panty', 'She found a panty in the laundry basket.'],
+  ['versus', "Tonight's game is Brazil versus Argentina."],
+  ['defence', 'The team worked hard on its defence.'],
+  ['jolly', 'Everyone was in a jolly mood after dinner.'],
+  ['amongst', 'She found the note hidden amongst the books.'],
+  ['bam', 'The door slammed shut—bam!'],
+  ['feds', 'The feds questioned him about the missing files.'],
+  ['intimate', 'They had an intimate conversation over dinner.'],
+  ['stud', 'The wall stud supports the shelf.'],
+  ['chow', "Let's grab some chow before the movie."],
+]);
 
 function tidy(value, maxLength = 180) {
   return String(value ?? '')
@@ -74,21 +153,92 @@ function tidyMeaning(value) {
     .slice(0, 180);
 }
 
-const [subtlexResponse, ecdictResponse] = await Promise.all([
+function sentenceTokens(sentence) {
+  return sentence.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
+}
+
+function isUsableSentence(sentence) {
+  const tokens = sentenceTokens(sentence);
+  if (tokens.length < 4 || tokens.length > 18 || sentence.length > 125)
+    return false;
+  if (
+    !/^[\x20-\x7E]+$/.test(sentence) ||
+    /https?:|www\.|\d{3,}/i.test(sentence)
+  )
+    return false;
+  return !tokens.some((token) => SENSITIVE.has(token));
+}
+
+function sentenceScore(sentence, word, matchedForm) {
+  const tokens = sentenceTokens(sentence);
+  let score = 100 - Math.abs(tokens.length - 8) * 5;
+  if (matchedForm === word) score += 18;
+  if (/\b(?:I|you|we|my|your|our)\b/i.test(sentence)) score += 9;
+  if (/[?!]$/.test(sentence)) score += 4;
+  if (/\b(?:Tom|Mary)\b/.test(sentence)) score -= 14;
+  score -= (sentence.match(/\b[A-Z][a-z]+\b/g)?.length ?? 0) * 3;
+  if (/['"][^'"]+['"]/.test(sentence)) score -= 6;
+  if (/[,;:].*[,;:]/.test(sentence)) score -= 5;
+  return score;
+}
+
+function exchangeForms(entry, word) {
+  const forms = new Set([word]);
+  String(entry.exchange ?? '')
+    .split('/')
+    .forEach((part) => {
+      const value = part.includes(':') ? part.slice(part.indexOf(':') + 1) : '';
+      value.split(',').forEach((form) => {
+        const normalised = form.trim().toLowerCase();
+        if (/^[a-z][a-z'-]{2,}$/.test(normalised)) forms.add(normalised);
+      });
+    });
+  return [...forms];
+}
+
+function fallbackExample(word, meaning) {
+  if (FALLBACK_EXAMPLES.has(word)) return FALLBACK_EXAMPLES.get(word);
+  if (OFFENSIVE.has(word))
+    return `“${word}” is an offensive term and should be avoided.`;
+  if (/^(?:v\.|vt\.|vi\.|vti\.)/i.test(meaning))
+    return `I didn't expect them to ${word} so quickly.`;
+  if (/^(?:a\.|adj\.)/i.test(meaning))
+    return `The situation felt ${word} at first.`;
+  if (/^(?:ad\.|adv\.)/i.test(meaning))
+    return `We handled the situation ${word}.`;
+  return `We talked about the ${word} after dinner.`;
+}
+
+const [
+  subtlexResponse,
+  ecdictResponse,
+  tatoebaSentencesResponse,
+  tatoebaAudioResponse,
+] = await Promise.all([
   fetch(SUBTLEX_URL),
   fetch(ECDICT_URL),
+  fetch(TATOEBA_SENTENCES_URL),
+  fetch(TATOEBA_AUDIO_URL),
 ]);
 
-if (!subtlexResponse.ok || !ecdictResponse.ok) {
+if (
+  !subtlexResponse.ok ||
+  !ecdictResponse.ok ||
+  !tatoebaSentencesResponse.ok ||
+  !tatoebaAudioResponse.ok
+) {
   throw new Error(
-    `Vocabulary download failed: SUBTLEX ${subtlexResponse.status}, ECDICT ${ecdictResponse.status}`
+    `Vocabulary download failed: SUBTLEX ${subtlexResponse.status}, ECDICT ${ecdictResponse.status}, Tatoeba sentences ${tatoebaSentencesResponse.status}, Tatoeba audio ${tatoebaAudioResponse.status}`
   );
 }
 
-const [subtlex, ecdictCsv] = await Promise.all([
-  subtlexResponse.json(),
-  ecdictResponse.text(),
-]);
+const [subtlex, ecdictCsv, tatoebaSentencesArchive, tatoebaAudioArchive] =
+  await Promise.all([
+    subtlexResponse.json(),
+    ecdictResponse.text(),
+    tatoebaSentencesResponse.arrayBuffer(),
+    tatoebaAudioResponse.arrayBuffer(),
+  ]);
 const parsed = Papa.parse(ecdictCsv, { header: true, skipEmptyLines: true });
 const dictionary = new Map();
 
@@ -98,12 +248,12 @@ for (const row of parsed.data) {
     dictionary.set(word, row);
 }
 
-const selected = [];
+const selectedBase = [];
 const seen = new Set();
 
 for (
   let rank = 0;
-  rank < subtlex.length && selected.length < TARGET_SIZE;
+  rank < subtlex.length && selectedBase.length < TARGET_SIZE;
   rank += 1
 ) {
   const rawWord = String(subtlex[rank].word ?? '');
@@ -132,7 +282,7 @@ for (
   if (!meaning || /^\[网络\]/.test(meaning)) continue;
 
   seen.add(word);
-  selected.push([
+  selectedBase.push([
     word,
     tidy(entry.phonetic, 80),
     meaning,
@@ -141,11 +291,68 @@ for (
   ]);
 }
 
-if (selected.length !== TARGET_SIZE) {
+if (selectedBase.length !== TARGET_SIZE) {
   throw new Error(
-    `Expected ${TARGET_SIZE} words, generated ${selected.length}`
+    `Expected ${TARGET_SIZE} words, generated ${selectedBase.length}`
   );
 }
+
+const targetByForm = new Map();
+for (const [word] of selectedBase) {
+  for (const form of exchangeForms(dictionary.get(word), word)) {
+    const targets = targetByForm.get(form) ?? [];
+    targets.push(word);
+    targetByForm.set(form, targets);
+  }
+}
+
+const audioTsv = Buffer.from(
+  seekBzip.decode(Buffer.from(tatoebaAudioArchive))
+).toString('utf8');
+const audioIds = new Set(
+  audioTsv
+    .split('\n')
+    .map((line) => line.slice(0, line.indexOf('\t')))
+    .filter(Boolean)
+);
+const sentencesTsv = Buffer.from(
+  seekBzip.decode(Buffer.from(tatoebaSentencesArchive))
+).toString('utf8');
+const bestExamples = new Map();
+
+for (const line of sentencesTsv.split('\n')) {
+  const [sentenceId, language, sentence] = line.split('\t');
+  if (
+    language !== 'eng' ||
+    !audioIds.has(sentenceId) ||
+    !sentence ||
+    !isUsableSentence(sentence)
+  )
+    continue;
+
+  const uniqueTokens = [...new Set(sentenceTokens(sentence))];
+  for (const form of uniqueTokens) {
+    for (const word of targetByForm.get(form) ?? []) {
+      const score = sentenceScore(sentence, word, form);
+      if (score > (bestExamples.get(word)?.score ?? -Infinity))
+        bestExamples.set(word, { sentence, score });
+    }
+  }
+}
+
+const selected = selectedBase.map(
+  ([word, phonetic, meaning, definition, sourceRank]) => [
+    word,
+    phonetic,
+    meaning,
+    definition,
+    tidy(
+      bestExamples.get(word)?.sentence ?? fallbackExample(word, meaning),
+      160
+    ),
+    sourceRank,
+  ]
+);
 
 const rows = selected.map((row) => `  ${JSON.stringify(row)},`).join('\n');
 const output = `import type { VocabWord } from './toeflSeed';
@@ -153,11 +360,13 @@ const output = `import type { VocabWord } from './toeflSeed';
 // Generated by scripts/generate-spoken-vocabulary.mjs from:
 // - SUBTLEX-US spoken-frequency ordering (ISC)
 // - ECDICT English-Chinese dictionary fields (MIT)
+// - Tatoeba English sentences with audio (CC BY 2.0 FR)
 type SpokenRow = readonly [
   word: string,
   phonetic: string,
   meaning: string,
   definition: string,
+  example: string,
   sourceRank: number,
 ];
 
@@ -166,13 +375,13 @@ ${rows}
 ];
 
 export const conversationVocabulary: VocabWord[] = SPOKEN_ROWS.map(
-  ([word, phonetic, meaning, definition, sourceRank], index) => ({
+  ([word, phonetic, meaning, definition, example, sourceRank], index) => ({
     id: \`spoken-\${index + 1}\`,
     word,
     phonetic: phonetic ? \`/\${phonetic.replace(/^\\/|\\/$/g, '')}/\` : '',
     meaning,
     definition,
-    example: '',
+    example,
     translation: '',
     day: 1,
     sourceRank,
@@ -182,6 +391,9 @@ export const conversationVocabulary: VocabWord[] = SPOKEN_ROWS.map(
 
 await writeFile(OUTPUT_URL, output, 'utf8');
 console.log(`Generated ${selected.length} words at ${OUTPUT_URL.pathname}`);
+console.log(
+  `Examples: ${bestExamples.size} Tatoeba matches, ${selected.length - bestExamples.size} reviewed fallbacks`
+);
 console.log(
   'First 20:',
   selected

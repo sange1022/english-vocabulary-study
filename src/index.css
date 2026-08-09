@@ -408,6 +408,23 @@ select:focus-visible {
   font-family: 'Noto Sans SC', sans-serif;
   font-size: 16px;
 }
+.card-answer .example-sentence {
+  max-width: 660px;
+  margin-inline: auto;
+}
+.example-sentence span {
+  display: inline-block;
+  margin-right: 9px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--sage);
+  background: rgba(71, 127, 92, 0.09);
+  font:
+    700 11px/1.2 'Noto Sans SC',
+    sans-serif;
+  letter-spacing: 0.08em;
+  vertical-align: 2px;
+}
 .card-answer .english-definition {
   max-width: 620px;
   margin: 0 auto 10px;
