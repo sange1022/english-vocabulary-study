@@ -1,5 +1,6 @@
 import {
   ChangeEvent,
+  TouchEvent as ReactTouchEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -13,11 +14,14 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleMinus,
+  Download,
   Layers3,
   ListRestart,
   RotateCcw,
   Shuffle,
   Sparkles,
+  Settings2,
+  Undo2,
   Upload,
   Volume2,
   X,
@@ -31,7 +35,32 @@ type View = 'today' | 'plan' | 'random' | 'mistakes';
 type DeckId = 'spoken3000' | 'toeflBook' | 'toefl';
 type Rating = 'known' | 'fuzzy' | 'unknown';
 type RatingMap = Record<string, Rating>;
+type ActivityMap = Record<string, string>;
 type ImportedDecks = Partial<Record<DeckId, VocabWord[]>>;
+type SpeechLanguage = 'en-US' | 'en-GB';
+
+interface SavedPosition {
+  deckId: DeckId;
+  day: number;
+  index: number;
+  shuffleMode: boolean;
+}
+
+interface SpeechSettings {
+  language: SpeechLanguage;
+  rate: number;
+  autoPlay: boolean;
+}
+
+interface LastRatingAction {
+  wordId: string;
+  previousRating?: Rating;
+  previousActivity?: string;
+  deckId: DeckId;
+  day: number;
+  index: number;
+  shuffleCycle: number;
+}
 
 interface DeckDefinition {
   id: DeckId;
@@ -44,6 +73,20 @@ interface DeckDefinition {
 
 const STORAGE_KEY = 'vocab-study-progress-v1';
 const IMPORT_KEY = 'vocab-study-import-v1';
+const ACTIVITY_KEY = 'vocab-study-activity-v1';
+const POSITION_KEY = 'vocab-study-position-v1';
+const SPEECH_KEY = 'vocab-study-speech-v1';
+const DEFAULT_POSITION: SavedPosition = {
+  deckId: 'spoken3000',
+  day: 1,
+  index: 0,
+  shuffleMode: false,
+};
+const DEFAULT_SPEECH: SpeechSettings = {
+  language: 'en-US',
+  rate: 1,
+  autoPlay: false,
+};
 const DEFAULT_DAYS: Record<DeckId, number> = {
   spoken3000: 30,
   toeflBook: 21,
@@ -78,7 +121,7 @@ const DECKS: DeckDefinition[] = [
 const navItems: Array<{ id: View; label: string; icon: typeof BookOpen }> = [
   { id: 'today', label: '今日学习', icon: BookOpen },
   { id: 'plan', label: '学习计划', icon: CalendarDays },
-  { id: 'random', label: '随机分组', icon: Shuffle },
+  { id: 'random', label: '抽词清单', icon: Shuffle },
   { id: 'mistakes', label: '错词本', icon: ListRestart },
 ];
 
@@ -116,6 +159,26 @@ function readJson<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function readSavedPosition(): SavedPosition {
+  const value = readJson<Partial<SavedPosition>>(POSITION_KEY, {});
+  const deckId = DECKS.some((deck) => deck.id === value.deckId)
+    ? (value.deckId as DeckId)
+    : DEFAULT_POSITION.deckId;
+  return {
+    deckId,
+    day: Math.max(1, Number(value.day) || 1),
+    index: Math.max(0, Number(value.index) || 0),
+    shuffleMode: Boolean(value.shuffleMode),
+  };
+}
+
+function getDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function normaliseImported(rows: unknown[], deckId: DeckId): VocabWord[] {
@@ -187,22 +250,35 @@ function shuffleVocabulary(
 }
 
 export default function ToeflStudyApp() {
+  const [initialPosition] = useState<SavedPosition>(readSavedPosition);
   const [view, setView] = useState<View>('today');
-  const [deckId, setDeckId] = useState<DeckId>('spoken3000');
-  const [day, setDay] = useState(1);
-  const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(true);
-  const [shuffleMode, setShuffleMode] = useState(false);
+  const [deckId, setDeckId] = useState<DeckId>(initialPosition.deckId);
+  const [day, setDay] = useState(initialPosition.day);
+  const [index, setIndex] = useState(initialPosition.index);
+  const [revealed, setRevealed] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState(initialPosition.shuffleMode);
   const [shuffleCycle, setShuffleCycle] = useState(0);
+  const [roundComplete, setRoundComplete] = useState(false);
   const [ratings, setRatings] = useState<RatingMap>(() =>
     readJson(STORAGE_KEY, {})
   );
+  const [activity, setActivity] = useState<ActivityMap>(() =>
+    readJson(ACTIVITY_KEY, {})
+  );
+  const [speechSettings, setSpeechSettings] = useState<SpeechSettings>(() =>
+    readJson(SPEECH_KEY, DEFAULT_SPEECH)
+  );
+  const [lastRatingAction, setLastRatingAction] =
+    useState<LastRatingAction | null>(null);
+  const [ratingFeedback, setRatingFeedback] = useState<string | null>(null);
   const [importedDecks, setImportedDecks] = useState<ImportedDecks>(() =>
     readJson(IMPORT_KEY, {})
   );
   const [randomSize, setRandomSize] = useState(10);
   const [randomWords, setRandomWords] = useState<VocabWord[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const progressFileRef = useRef<HTMLInputElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const selectedDeck = DECKS.find((deck) => deck.id === deckId) ?? DECKS[0];
   const words = useMemo(
@@ -234,7 +310,19 @@ export default function ToeflStudyApp() {
       ),
     [ratings, words]
   );
-  const completedToday = dayWords.filter((word) => ratings[word.id]).length;
+  const todayKey = getDateKey();
+  const completedInGroup = dayWords.filter((word) => ratings[word.id]).length;
+  const learnedToday = words.filter(
+    (word) => activity[word.id] === todayKey
+  ).length;
+  const dayRatingStats = dayWords.reduce(
+    (stats, word) => {
+      const rating = ratings[word.id];
+      if (rating) stats[rating] += 1;
+      return stats;
+    },
+    { known: 0, fuzzy: 0, unknown: 0 }
+  );
   const visibleDays = useMemo(
     () => getVisibleDays(dayCount, day),
     [dayCount, day]
@@ -245,42 +333,147 @@ export default function ToeflStudyApp() {
     [ratings]
   );
   useEffect(
+    () => localStorage.setItem(ACTIVITY_KEY, JSON.stringify(activity)),
+    [activity]
+  );
+  useEffect(
     () => localStorage.setItem(IMPORT_KEY, JSON.stringify(importedDecks)),
     [importedDecks]
   );
+  useEffect(
+    () => localStorage.setItem(SPEECH_KEY, JSON.stringify(speechSettings)),
+    [speechSettings]
+  );
+  useEffect(() => {
+    const position: SavedPosition = { deckId, day, index, shuffleMode };
+    localStorage.setItem(POSITION_KEY, JSON.stringify(position));
+  }, [day, deckId, index, shuffleMode]);
+  useEffect(() => {
+    if (!ratingFeedback) return;
+    const timer = window.setTimeout(() => setRatingFeedback(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [ratingFeedback]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [deckId, view]);
+  useEffect(() => {
+    if (!roundComplete) return;
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+  }, [roundComplete]);
+
   const changeDeck = (nextDeckId: DeckId) => {
     setDeckId(nextDeckId);
     setDay(1);
     setIndex(0);
     setShuffleCycle(0);
-    setRevealed(true);
+    setRevealed(false);
+    setRoundComplete(false);
     setRandomWords([]);
     setView('today');
   };
 
   const move = useCallback(
     (direction: number) => {
-      if (!studyWords.length) return;
+      if (!studyWords.length || roundComplete) return;
       const next = index + direction;
-      if (shuffleMode && direction > 0 && next >= studyWords.length) {
-        setShuffleCycle((previous) => previous + 1);
-        setIndex(0);
+      if (direction > 0 && next >= studyWords.length) {
+        setRoundComplete(true);
       } else {
         setIndex((next + studyWords.length) % studyWords.length);
       }
       setRevealed(false);
     },
-    [index, shuffleMode, studyWords.length]
+    [index, roundComplete, studyWords.length]
   );
 
   const rate = useCallback(
     (rating: Rating) => {
-      if (!currentWord) return;
+      if (!currentWord || roundComplete) return;
+      setLastRatingAction({
+        wordId: currentWord.id,
+        previousRating: ratings[currentWord.id],
+        previousActivity: activity[currentWord.id],
+        deckId,
+        day,
+        index,
+        shuffleCycle,
+      });
       setRatings((previous) => ({ ...previous, [currentWord.id]: rating }));
+      setActivity((previous) => ({
+        ...previous,
+        [currentWord.id]: getDateKey(),
+      }));
+      const label =
+        rating === 'known' ? '认识' : rating === 'fuzzy' ? '模糊' : '不认识';
+      setRatingFeedback(`已标记为“${label}”`);
       move(1);
     },
-    [currentWord, move]
+    [
+      activity,
+      currentWord,
+      day,
+      deckId,
+      index,
+      move,
+      ratings,
+      roundComplete,
+      shuffleCycle,
+    ]
   );
+
+  const undoLastRating = () => {
+    if (!lastRatingAction) return;
+    const action = lastRatingAction;
+    setRatings((previous) => {
+      const next = { ...previous };
+      if (action.previousRating) next[action.wordId] = action.previousRating;
+      else delete next[action.wordId];
+      return next;
+    });
+    setActivity((previous) => {
+      const next = { ...previous };
+      if (action.previousActivity)
+        next[action.wordId] = action.previousActivity;
+      else delete next[action.wordId];
+      return next;
+    });
+    setDeckId(action.deckId);
+    setDay(action.day);
+    setIndex(action.index);
+    setShuffleCycle(action.shuffleCycle);
+    setRoundComplete(false);
+    setRevealed(false);
+    setLastRatingAction(null);
+    setRatingFeedback('已撤销上一次评价');
+  };
+
+  const continueUnfinished = () => {
+    const nextIndex = studyWords.findIndex((word) => !ratings[word.id]);
+    if (nextIndex < 0) {
+      setRoundComplete(true);
+      return;
+    }
+    setIndex(nextIndex);
+    setRoundComplete(false);
+    setRevealed(false);
+    setView('today');
+  };
+
+  const restartRound = () => {
+    if (shuffleMode) setShuffleCycle((previous) => previous + 1);
+    setIndex(0);
+    setRoundComplete(false);
+    setRevealed(false);
+  };
+
+  const markMistakeLearned = (id: string) => {
+    setRatings((previous) => ({ ...previous, [id]: 'known' }));
+    setActivity((previous) => ({ ...previous, [id]: getDateKey() }));
+    setRatingFeedback('已标记掌握并移出错词本');
+  };
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -303,12 +496,101 @@ export default function ToeflStudyApp() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [move, rate]);
 
+  useEffect(() => {
+    if (day > dayCount) setDay(dayCount);
+    if (index >= studyWords.length && studyWords.length) setIndex(0);
+  }, [day, dayCount, index, studyWords.length]);
+
+  const speakWord = useCallback(
+    (word: VocabWord) => {
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(word.word);
+      utterance.lang = speechSettings.language;
+      utterance.rate = speechSettings.rate;
+      speechSynthesis.speak(utterance);
+    },
+    [speechSettings.language, speechSettings.rate]
+  );
+
   const speak = () => {
-    if (!currentWord || !('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentWord.word);
-    utterance.lang = 'en-US';
-    speechSynthesis.speak(utterance);
+    if (currentWord) speakWord(currentWord);
+  };
+
+  useEffect(() => {
+    if (!speechSettings.autoPlay || !currentWord || roundComplete) return;
+    speakWord(currentWord);
+  }, [currentWord, roundComplete, speakWord, speechSettings.autoPlay]);
+
+  const startTouch = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.changedTouches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const finishTouch = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || roundComplete) return;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 65) return;
+    if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY < 0) rate('fuzzy');
+    else if (Math.abs(deltaX) > Math.abs(deltaY))
+      rate(deltaX > 0 ? 'known' : 'unknown');
+  };
+
+  const exportProgress = () => {
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      ratings,
+      activity,
+      importedDecks,
+      position: { deckId, day, index, shuffleMode },
+      speechSettings,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `词刻学习进度-${getDateKey()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importProgress = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const backup = JSON.parse(await file.text()) as {
+        ratings?: RatingMap;
+        activity?: ActivityMap;
+        importedDecks?: ImportedDecks;
+        position?: SavedPosition;
+        speechSettings?: SpeechSettings;
+      };
+      if (backup.ratings) setRatings(backup.ratings);
+      if (backup.activity) setActivity(backup.activity);
+      if (backup.importedDecks) setImportedDecks(backup.importedDecks);
+      if (backup.speechSettings) setSpeechSettings(backup.speechSettings);
+      if (
+        backup.position &&
+        DECKS.some((deck) => deck.id === backup.position?.deckId)
+      ) {
+        setDeckId(backup.position.deckId);
+        setDay(backup.position.day);
+        setIndex(backup.position.index);
+        setShuffleMode(backup.position.shuffleMode);
+      }
+      setRatingFeedback('学习进度已导入');
+      setView('today');
+    } catch {
+      setRatingFeedback('进度文件无法识别');
+    }
+    event.target.value = '';
   };
 
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -377,19 +659,36 @@ export default function ToeflStudyApp() {
             );
           })}
         </nav>
-        <button
-          className="import-button"
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload size={20} strokeWidth={1.8} />
-          导入词表
-        </button>
+        <div className="sidebar-tools">
+          <button
+            className="import-button"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload size={20} strokeWidth={1.8} />
+            导入词表
+          </button>
+          <button onClick={exportProgress}>
+            <Download size={19} strokeWidth={1.8} />
+            导出进度
+          </button>
+          <button onClick={() => progressFileRef.current?.click()}>
+            <Upload size={19} strokeWidth={1.8} />
+            导入进度
+          </button>
+        </div>
         <input
           ref={fileRef}
           className="visually-hidden"
           type="file"
           accept=".csv,.json"
           onChange={importFile}
+        />
+        <input
+          ref={progressFileRef}
+          className="visually-hidden"
+          type="file"
+          accept=".json"
+          onChange={importProgress}
         />
         <p className="sidebar-author-credit">
           作者 · <strong>戌無营造</strong>
@@ -431,6 +730,7 @@ export default function ToeflStudyApp() {
                           setDay(number);
                           setIndex(0);
                           setRevealed(false);
+                          setRoundComplete(false);
                         }}
                       >
                         {number}
@@ -465,6 +765,7 @@ export default function ToeflStudyApp() {
                       setShuffleMode(false);
                       setIndex(0);
                       setRevealed(false);
+                      setRoundComplete(false);
                     }}
                   >
                     <ListRestart size={19} />
@@ -478,6 +779,7 @@ export default function ToeflStudyApp() {
                         setShuffleCycle((previous) => previous + 1);
                         setIndex(0);
                         setRevealed(false);
+                        setRoundComplete(false);
                       }
                       setShuffleMode(true);
                     }}
@@ -488,12 +790,77 @@ export default function ToeflStudyApp() {
                 </div>
                 {shuffleMode ? (
                   <p className="shuffle-note">
-                    本轮不重复 · 学完后自动重新打乱
+                    本轮不重复 · 学完后显示学习总结
                   </p>
                 ) : null}
-                {currentWord ? (
+                <details className="speech-settings">
+                  <summary>
+                    <Settings2 size={16} />
+                    发音设置
+                  </summary>
+                  <div>
+                    <label>
+                      口音
+                      <select
+                        aria-label="发音口音"
+                        value={speechSettings.language}
+                        onChange={(event) =>
+                          setSpeechSettings((current) => ({
+                            ...current,
+                            language: event.target.value as SpeechLanguage,
+                          }))
+                        }
+                      >
+                        <option value="en-US">美音</option>
+                        <option value="en-GB">英音</option>
+                      </select>
+                    </label>
+                    <label>
+                      语速
+                      <select
+                        aria-label="发音语速"
+                        value={speechSettings.rate}
+                        onChange={(event) =>
+                          setSpeechSettings((current) => ({
+                            ...current,
+                            rate: Number(event.target.value),
+                          }))
+                        }
+                      >
+                        <option value="0.8">较慢</option>
+                        <option value="1">正常</option>
+                        <option value="1.2">较快</option>
+                      </select>
+                    </label>
+                    <label className="auto-speak-toggle">
+                      <input
+                        type="checkbox"
+                        checked={speechSettings.autoPlay}
+                        onChange={(event) =>
+                          setSpeechSettings((current) => ({
+                            ...current,
+                            autoPlay: event.target.checked,
+                          }))
+                        }
+                      />
+                      切换单词时自动朗读
+                    </label>
+                  </div>
+                </details>
+                {roundComplete ? (
+                  <RoundSummary
+                    total={dayWords.length}
+                    known={dayRatingStats.known}
+                    fuzzy={dayRatingStats.fuzzy}
+                    unknown={dayRatingStats.unknown}
+                    onRestart={restartRound}
+                    onReview={() => setView('mistakes')}
+                  />
+                ) : currentWord ? (
                   <article
                     className={revealed ? 'flashcard revealed' : 'flashcard'}
+                    onTouchStart={startTouch}
+                    onTouchEnd={finishTouch}
                   >
                     <button
                       className="speaker"
@@ -549,35 +916,65 @@ export default function ToeflStudyApp() {
                   </article>
                 )}
 
-                <div className="rating-row">
-                  <button className="known" onClick={() => rate('known')}>
-                    <Check />
-                    <span>
-                      认识<small>1</small>
-                    </span>
-                  </button>
-                  <button className="fuzzy" onClick={() => rate('fuzzy')}>
-                    <CircleMinus />
-                    <span>
-                      模糊<small>2</small>
-                    </span>
-                  </button>
-                  <button className="unknown" onClick={() => rate('unknown')}>
-                    <X />
-                    <span>
-                      不认识<small>3</small>
-                    </span>
-                  </button>
-                </div>
-                <div className="card-navigation">
-                  <button onClick={() => move(-1)} aria-label="上一个单词">
-                    <ChevronLeft />
-                  </button>
-                  <span>空格翻面 · 1/2/3 选择</span>
-                  <button onClick={() => move(1)} aria-label="下一个单词">
-                    <ChevronRight />
-                  </button>
-                </div>
+                {!roundComplete ? (
+                  <div className="rating-row">
+                    <button
+                      className={
+                        ratings[currentWord?.id ?? ''] === 'known'
+                          ? 'known selected'
+                          : 'known'
+                      }
+                      aria-pressed={ratings[currentWord?.id ?? ''] === 'known'}
+                      onClick={() => rate('known')}
+                    >
+                      <Check />
+                      <span>
+                        认识<small>1</small>
+                      </span>
+                    </button>
+                    <button
+                      className={
+                        ratings[currentWord?.id ?? ''] === 'fuzzy'
+                          ? 'fuzzy selected'
+                          : 'fuzzy'
+                      }
+                      aria-pressed={ratings[currentWord?.id ?? ''] === 'fuzzy'}
+                      onClick={() => rate('fuzzy')}
+                    >
+                      <CircleMinus />
+                      <span>
+                        模糊<small>2</small>
+                      </span>
+                    </button>
+                    <button
+                      className={
+                        ratings[currentWord?.id ?? ''] === 'unknown'
+                          ? 'unknown selected'
+                          : 'unknown'
+                      }
+                      aria-pressed={
+                        ratings[currentWord?.id ?? ''] === 'unknown'
+                      }
+                      onClick={() => rate('unknown')}
+                    >
+                      <X />
+                      <span>
+                        不认识<small>3</small>
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
+                {!roundComplete ? (
+                  <div className="card-navigation">
+                    <button onClick={() => move(-1)} aria-label="上一个单词">
+                      <ChevronLeft />
+                    </button>
+                    <span>空格翻面 · 1/2/3 选择 · 手机可左右/上滑</span>
+                    <button onClick={() => move(1)} aria-label="下一个单词">
+                      <ChevronRight />
+                    </button>
+                  </div>
+                ) : null}
               </section>
 
               <aside className="progress-rail">
@@ -585,7 +982,7 @@ export default function ToeflStudyApp() {
                 <div className="stat">
                   <BookOpen />
                   <span>
-                    今日<strong>{dayWords.length}</strong>
+                    今日学习<strong>{learnedToday}</strong>
                   </span>
                 </div>
                 <div className="stat blue">
@@ -604,15 +1001,12 @@ export default function ToeflStudyApp() {
                     </strong>
                   </span>
                 </div>
-                <button
-                  className="review-button"
-                  onClick={() => setView('mistakes')}
-                >
-                  <RotateCcw size={18} />
-                  开始复习
+                <button className="review-button" onClick={continueUnfinished}>
+                  <BookOpen size={18} />
+                  继续未完成
                 </button>
                 <p>
-                  已完成 {completedToday} / {dayWords.length}
+                  本组累计 {completedInGroup} / {dayWords.length}
                 </p>
               </aside>
             </div>
@@ -622,12 +1016,15 @@ export default function ToeflStudyApp() {
         {view === 'plan' ? (
           <PlanView
             words={words}
+            ratings={ratings}
             day={day}
             dayCount={dayCount}
             deckName={selectedDeck.name}
             onSelectDay={(selected) => {
               setDay(selected);
               setIndex(0);
+              setRoundComplete(false);
+              setRevealed(false);
               setView('today');
             }}
           />
@@ -644,11 +1041,19 @@ export default function ToeflStudyApp() {
           <MistakesView
             words={mistakes}
             ratings={ratings}
-            onClear={(id) =>
-              setRatings((previous) => ({ ...previous, [id]: 'known' }))
-            }
+            onClear={markMistakeLearned}
           />
         ) : null}
+        <div className="mobile-progress-tools">
+          <button onClick={exportProgress}>
+            <Download size={17} />
+            导出学习进度
+          </button>
+          <button onClick={() => progressFileRef.current?.click()}>
+            <Upload size={17} />
+            导入学习进度
+          </button>
+        </div>
         <footer className="mobile-author-credit">
           作者 · <strong>戌無营造</strong>
         </footer>
@@ -669,7 +1074,69 @@ export default function ToeflStudyApp() {
           );
         })}
       </nav>
+      {ratingFeedback ? (
+        <div className="rating-feedback" role="status">
+          <span>{ratingFeedback}</span>
+          {lastRatingAction ? (
+            <button onClick={undoLastRating}>
+              <Undo2 size={16} />
+              撤销
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function RoundSummary({
+  total,
+  known,
+  fuzzy,
+  unknown,
+  onRestart,
+  onReview,
+}: {
+  total: number;
+  known: number;
+  fuzzy: number;
+  unknown: number;
+  onRestart: () => void;
+  onReview: () => void;
+}) {
+  const rated = known + fuzzy + unknown;
+
+  return (
+    <article className="round-summary">
+      <div className="round-summary-mark">
+        <Check />
+      </div>
+      <h2>本轮浏览完成</h2>
+      <p>
+        已评价 {rated} / {total} 个单词
+      </p>
+      <div className="round-summary-stats">
+        <span>
+          认识<strong>{known}</strong>
+        </span>
+        <span>
+          模糊<strong>{fuzzy}</strong>
+        </span>
+        <span>
+          不认识<strong>{unknown}</strong>
+        </span>
+      </div>
+      <div className="round-summary-actions">
+        <button onClick={onReview} disabled={fuzzy + unknown === 0}>
+          <RotateCcw size={18} />
+          复习模糊和生词
+        </button>
+        <button onClick={onRestart}>
+          <Shuffle size={18} />
+          重新学习全部
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -756,12 +1223,14 @@ function DeckSettings({
 
 function PlanView({
   words,
+  ratings,
   day,
   dayCount,
   deckName,
   onSelectDay,
 }: {
   words: VocabWord[];
+  ratings: RatingMap;
   day: number;
   dayCount: number;
   deckName: string;
@@ -781,7 +1250,21 @@ function PlanView({
       </div>
       <div className="plan-grid">
         {Array.from({ length: dayCount }, (_, i) => i + 1).map((number) => {
-          const { count } = getDayWordRange(words.length, dayCount, number);
+          const { start, count } = getDayWordRange(
+            words.length,
+            dayCount,
+            number
+          );
+          const completed = words
+            .slice(start, start + count)
+            .filter((word) => ratings[word.id]).length;
+          const progress = count ? (completed / count) * 100 : 0;
+          const status =
+            completed === count
+              ? '已完成'
+              : completed > 0
+                ? '学习中'
+                : '未开始';
           return (
             <button
               key={number}
@@ -789,9 +1272,12 @@ function PlanView({
               onClick={() => onSelectDay(number)}
             >
               <span>DAY {String(number).padStart(2, '0')}</span>
-              <strong>{count}</strong>
-              <small>个词</small>
-              <i style={{ width: count ? '100%' : '0%' }} />
+              <strong>
+                {completed}
+                <em> / {count}</em>
+              </strong>
+              <small>{status}</small>
+              <i style={{ width: `${progress}%` }} />
             </button>
           );
         })}
@@ -815,8 +1301,8 @@ function RandomView({
     <section className="secondary-view">
       <div className="view-heading">
         <div>
-          <h1>随机分组</h1>
-          <p>从全部词汇中打散抽取，适合脱离顺序后的强化检查。</p>
+          <h1>抽词清单</h1>
+          <p>从全部词汇中随机抽取一份清单，适合集中预习或抄写。</p>
         </div>
         <Shuffle />
       </div>
@@ -834,7 +1320,7 @@ function RandomView({
         </label>
         <button onClick={onGenerate}>
           <Shuffle size={18} />
-          生成新分组
+          生成新清单
         </button>
       </div>
       {words.length ? (
@@ -850,8 +1336,8 @@ function RandomView({
       ) : (
         <div className="large-empty">
           <Shuffle />
-          <h2>还没有随机分组</h2>
-          <p>选择数量并生成一组词汇。</p>
+          <h2>还没有抽词清单</h2>
+          <p>选择数量并生成一份随机词汇清单。</p>
         </div>
       )}
     </section>
