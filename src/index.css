@@ -435,11 +435,32 @@ select:focus-visible {
   cursor: pointer;
   text-align: center;
 }
-.card-word span {
+.card-word > span {
   font:
     600 clamp(63px, 7vw, 89px) / 1 'Source Serif 4',
     serif;
   letter-spacing: -0.025em;
+}
+.card-word-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.word-type-badge,
+.word-list-type,
+.mistake-word-type {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid rgba(82, 112, 96, 0.22);
+  border-radius: 999px;
+  color: var(--sage);
+  background: rgba(82, 112, 96, 0.08);
+  font: 600 11px/1.1 -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 .card-word small {
   color: #6f746f;
@@ -910,10 +931,17 @@ select:focus-visible {
   background: rgba(197, 145, 48, 0.09);
 }
 .mistake-check-card h2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
   margin: 18px 0 5px;
   font:
     600 clamp(54px, 8vw, 86px) / 1 'Source Serif 4',
     serif;
+}
+.mistake-check-card h2 .mistake-word-type {
+  font-size: 11px;
 }
 .mistake-check-card > small {
   color: var(--muted);
@@ -1096,9 +1124,15 @@ select:focus-visible {
   color: var(--coral);
 }
 .word-list strong {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font:
     600 21px 'Source Serif 4',
     serif;
+}
+.word-list-type {
+  font-style: normal;
 }
 .word-list p {
   margin: 0;
@@ -1252,8 +1286,12 @@ select:focus-visible {
     min-height: 350px;
     padding: 36px 20px 24px;
   }
-  .card-word span {
+  .card-word > span {
     font-size: 52px;
+  }
+  .card-word-line {
+    flex-wrap: wrap;
+    gap: 9px;
   }
   .book-word-details section {
     grid-template-columns: 1fr;

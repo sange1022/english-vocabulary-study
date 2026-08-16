@@ -7,6 +7,8 @@ export interface VocabWord {
   translation: string;
   day: number;
   definition?: string;
+  partOfSpeech?: string;
+  category?: string;
   sourceRank?: number;
   derivatives?: string;
   synonyms?: string;

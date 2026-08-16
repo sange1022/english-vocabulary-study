@@ -28,11 +28,12 @@ import {
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { conversationVocabulary } from '@/data/conversationSeed';
+import ogden850Seed from '@/data/ogden850Seed.json';
 import toeflBookSeed from '@/data/toeflBookSeed.json';
 import { seedVocabulary, type VocabWord } from '@/data/toeflSeed';
 
 type View = 'today' | 'plan' | 'random' | 'mistakes';
-type DeckId = 'spoken3000' | 'toeflBook' | 'toefl';
+type DeckId = 'spoken3000' | 'toeflBook' | 'ogden850' | 'toefl';
 type Rating = 'known' | 'fuzzy' | 'unknown';
 type RatingMap = Record<string, Rating>;
 type ActivityMap = Record<string, string>;
@@ -90,6 +91,7 @@ const DEFAULT_SPEECH: SpeechSettings = {
 const DEFAULT_DAYS: Record<DeckId, number> = {
   spoken3000: 30,
   toeflBook: 21,
+  ogden850: 30,
   toefl: 10,
 };
 const DECKS: DeckDefinition[] = [
@@ -108,6 +110,14 @@ const DECKS: DeckDefinition[] = [
     subtitle: '学习原书释义、例句、派生词与近义词',
     source: '《TOEFL 核心词汇 21 天突破》扫描版',
     words: toeflBookSeed as VocabWord[],
+  },
+  {
+    id: 'ogden850',
+    name: '奥格登基础英语词表',
+    shortName: '奥格登基础英语',
+    subtitle: '掌握基础英语中的操作词、名词与形容词',
+    source: '用户提供的 DOCX · 按文档实际收录 926 条',
+    words: ogden850Seed as VocabWord[],
   },
   {
     id: 'toefl',
@@ -197,6 +207,8 @@ function normaliseImported(rows: unknown[], deckId: DeckId): VocabWord[] {
         example: String(item.example ?? ''),
         translation: String(item.translation ?? ''),
         definition: String(item.definition ?? ''),
+        partOfSpeech: String(item.partOfSpeech ?? item.category ?? ''),
+        category: String(item.category ?? ''),
         derivatives: String(item.derivatives ?? ''),
         synonyms: String(item.synonyms ?? ''),
         day: 1,
@@ -873,7 +885,14 @@ export default function ToeflStudyApp() {
                       className="card-word"
                       onClick={() => setRevealed((value) => !value)}
                     >
-                      <span>{currentWord.word}</span>
+                      <span className="card-word-line">
+                        {currentWord.partOfSpeech ? (
+                          <b className="word-type-badge">
+                            {currentWord.partOfSpeech}
+                          </b>
+                        ) : null}
+                        {currentWord.word}
+                      </span>
                       <small>
                         {currentWord.phonetic ||
                           (revealed ? '点击卡片隐藏释义' : '点击卡片查看释义')}
@@ -1328,7 +1347,12 @@ function RandomView({
           {words.map((word, index) => (
             <div key={word.id}>
               <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{word.word}</strong>
+              <strong>
+                {word.partOfSpeech ? (
+                  <em className="word-list-type">{word.partOfSpeech}</em>
+                ) : null}
+                {word.word}
+              </strong>
               <p>{word.meaning}</p>
             </div>
           ))}
@@ -1410,7 +1434,14 @@ function MistakesView({
               <span className={ratings[currentCheckWord.id]}>
                 {ratings[currentCheckWord.id] === 'fuzzy' ? '模糊' : '生词'}
               </span>
-              <h2>{currentCheckWord.word}</h2>
+              <h2>
+                {currentCheckWord.partOfSpeech ? (
+                  <small className="mistake-word-type">
+                    {currentCheckWord.partOfSpeech}
+                  </small>
+                ) : null}
+                {currentCheckWord.word}
+              </h2>
               {currentCheckWord.phonetic ? (
                 <small>{currentCheckWord.phonetic}</small>
               ) : null}
@@ -1492,7 +1523,12 @@ function MistakesView({
               <span className={ratings[word.id]}>
                 {ratings[word.id] === 'fuzzy' ? '模糊' : '生词'}
               </span>
-              <strong>{word.word}</strong>
+              <strong>
+                {word.partOfSpeech ? (
+                  <em className="word-list-type">{word.partOfSpeech}</em>
+                ) : null}
+                {word.word}
+              </strong>
               <p>{word.meaning}</p>
               <button onClick={() => onClear(word.id)}>
                 <Check size={16} />
